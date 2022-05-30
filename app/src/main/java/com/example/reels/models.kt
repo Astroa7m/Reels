@@ -3,7 +3,12 @@ package com.example.reels
 import java.util.*
 
 enum class Icon {
-    CAMERA
+    CAMERA,
+    SHARE,
+    MORE_OPTIONS,
+    AUDIO,
+    LIKE,
+    COMMENT
 }
 
 data class Reel(
