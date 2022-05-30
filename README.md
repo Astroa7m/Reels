@@ -3,7 +3,7 @@ Streaming reel videos like Instagram with ExoPlayer in Android
 
 # Note
 
-Performance seem to be slightly improved when enabling release mode, make sure to leave it enabled.
+Performance seemed to be slightly improved when enabling release mode, make sure to leave it enabled.
 
 ```
 buildTypes {
