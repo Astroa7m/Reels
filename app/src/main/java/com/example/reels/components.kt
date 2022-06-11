@@ -70,28 +70,30 @@ fun ReelsScreen(modifier: Modifier = Modifier, exoPlayer: ExoPlayer) {
     val lazyState = rememberLazyListState()
     val currentlyPlayingItem = determineCurrentlyPlayingItem(lazyState, list)
     UpdateCurrentReel(currentlyPlayingItem, exoPlayer)
-    LazyColumn(
-        modifier = modifier,
-        state = lazyState,
-        flingBehavior = rememberSnapperFlingBehavior(
-            lazyListState = lazyState,
-            snapIndex = { _, startIndex, targetIndex ->
-                targetIndex.coerceIn(startIndex - 1, startIndex + 1)
-            }
-        )
-    ) {
-
-        items(list) {
-            ReelItem(
-                currentPlayerItem = currentlyPlayingItem,
-                reel = it,
-                onIconClicked = {
-                    // TODO:  
-                },
-                modifier = Modifier
-                    .fillParentMaxSize(),
-                exoPlayer = exoPlayer
+    Box(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = lazyState,
+            flingBehavior = rememberSnapperFlingBehavior(
+                lazyListState = lazyState,
+                snapIndex = { _, startIndex, targetIndex ->
+                    targetIndex.coerceIn(startIndex - 1, startIndex + 1)
+                }
             )
+        ) {
+
+            items(list) {
+                ReelItem(
+                    currentPlayerItem = currentlyPlayingItem,
+                    reel = it,
+                    onIconClicked = {
+                        // TODO:
+                    },
+                    modifier = Modifier
+                        .fillParentMaxSize(),
+                    exoPlayer = exoPlayer
+                )
+            }
         }
     }
 }
