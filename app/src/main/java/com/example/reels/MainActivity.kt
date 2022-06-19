@@ -19,19 +19,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             ReelsTheme {
-                val context = LocalContext.current
-                val exoPlayer = remember {
-                    ExoPlayer.Builder(context).build().apply {
-                        videoScalingMode = C.VIDEO_SCALING_MODE_DEFAULT
-                        repeatMode = Player.REPEAT_MODE_ONE
-                        prepare()
-                    }
-                }
-                ObserveLifeCycleForExoPlayer(exoPlayer)
                 Surface(
                     color = Color.Black
                 ) {
-                    ReelsScreen(exoPlayer = exoPlayer, modifier = Modifier.fillMaxSize())
+                    ReelsScreen()
                 }
             }
         }

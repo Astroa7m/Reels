@@ -21,6 +21,7 @@ data class ReelInfo(
     val username: String,
     val profilePicUrl: String,
     val description: String? = null,
+    val isLiked: Boolean,
     val likes: Int,
     val comments: Int,
     val audio: String = "$username • Original Audio",

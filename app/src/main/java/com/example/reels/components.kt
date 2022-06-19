@@ -1,27 +1,22 @@
-@file:OptIn(
-    ExperimentalAnimationApi::class,
-    ExperimentalSnapperApi::class
-)
-@file:UnstableApi
+@file:OptIn(ExperimentalAnimationApi::class)
 
 package com.example.reels
 
-// TODO: fix performance issue
+// TODO: change to clean data
+// TODO: check reel item
 
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import android.widget.FrameLayout
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.*
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
@@ -42,231 +37,339 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Devices
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.PlayerView.SHOW_BUFFERING_ALWAYS
 import coil.compose.rememberAsyncImagePainter
-import dev.chrisbanes.snapper.ExperimentalSnapperApi
-import dev.chrisbanes.snapper.rememberSnapperFlingBehavior
+import com.google.accompanist.pager.ExperimentalPagerApi
+import com.google.accompanist.pager.VerticalPager
+import com.google.accompanist.pager.rememberPagerState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 
+@OptIn(ExperimentalPagerApi::class)
 @Composable
-fun ReelsScreen(modifier: Modifier = Modifier, exoPlayer: ExoPlayer) {
-    val lazyState = rememberLazyListState()
-    val currentlyPlayingItem = determineCurrentlyPlayingItem(lazyState, list)
-    UpdateCurrentReel(currentlyPlayingItem, exoPlayer)
-    Box(modifier = modifier) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = lazyState,
-            flingBehavior = rememberSnapperFlingBehavior(
-                lazyListState = lazyState,
-                snapIndex = { _, startIndex, targetIndex ->
-                    targetIndex.coerceIn(startIndex - 1, startIndex + 1)
-                }
-            )
-        ) {
-
-            items(list) {
-                ReelItem(
-                    currentPlayerItem = currentlyPlayingItem,
-                    reel = it,
-                    onIconClicked = {
-                        // TODO:
-                    },
-                    modifier = Modifier
-                        .fillParentMaxSize(),
-                    exoPlayer = exoPlayer
-                )
-            }
-        }
-    }
-}
-
-private fun determineCurrentlyPlayingItem(listState: LazyListState, items: List<Reel>): Reel? {
-    val layoutInfo = listState.layoutInfo
-    val visibleTweets = layoutInfo.visibleItemsInfo.map { items[it.index] }.ifEmpty { return null }
-    return if (visibleTweets.size == 1) {
-        visibleTweets.first()
-    } else {
-        val midPoint = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-        val itemsFromCenter =
-            layoutInfo.visibleItemsInfo.sortedBy { abs((it.offset + it.size / 2) - midPoint) }
-        itemsFromCenter.map { items[it.index] }.first()
-    }
-}
-
-
-@Composable
-fun ObserveLifeCycleForExoPlayer(exoPlayer: ExoPlayer) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val lifecycle = lifecycleOwner.lifecycle
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_PAUSE -> {
-                    exoPlayer.playWhenReady = false
-                }
-                Lifecycle.Event.ON_RESUME -> {
-                    exoPlayer.playWhenReady = true
-                }
-                Lifecycle.Event.ON_DESTROY -> {
-                    exoPlayer.run {
-                        stop()
-                        release()
-                    }
-                }
-                else -> {}
-            }
-        }
-        lifecycle.addObserver(observer)
-        onDispose {
-            lifecycle.removeObserver(observer)
-        }
-    }
-}
-
-@Composable
-fun UpdateCurrentReel(reel: Reel?, exoPlayer: ExoPlayer) {
-    reel?.let {
-        LaunchedEffect(reel) {
-            val defaultDataSource = DefaultHttpDataSource.Factory()
-            exoPlayer.apply {
-                val source = ProgressiveMediaSource.Factory(defaultDataSource)
-                    .createMediaSource(MediaItem.fromUri(reel.reelUrl))
-                setMediaSource(source)
-                playWhenReady = true
-            }
-        }
-    }
-}
-
-@Composable
-fun ReelItem(
-    currentPlayerItem: Reel?,
-    reel: Reel,
-    modifier: Modifier = Modifier,
-    onIconClicked: (Icon) -> Unit,
-    exoPlayer: ExoPlayer
-) {
+fun ReelsScreen() {
+    val pagerState = rememberPagerState()
     var isMuted by remember {
         mutableStateOf(false)
     }
-    Box(modifier = modifier.clickable(
-        interactionSource = remember { MutableInteractionSource() },
-        indication = null,
-    ) {
-        if (isMuted.not()) {
-            exoPlayer.volume = 0f
-            isMuted = true
-        } else {
-            exoPlayer.volume = 1f
-            isMuted = false
+    val onLiked = remember {
+        { index: Int, liked: Boolean ->
+            reels[index] =
+                reels[index].copy(reelInfo = reels[index].reelInfo.copy(isLiked = liked))
         }
-    }) {
-
-        var volumeIconVisibility by remember {
-            mutableStateOf(false)
+    }
+    VerticalPager(
+        count = reels.size,
+        state = pagerState,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        itemSpacing = 10.dp
+    ) { index ->
+        val shouldPlay by remember(currentPage) {
+            derivedStateOf {
+                (abs(currentPageOffset) < .5 && currentPage == index) || (abs(
+                    currentPageOffset
+                ) > .5 && pagerState.targetPage == index)
+            }
         }
-
-        LaunchedEffect(key1 = isMuted) {
-            volumeIconVisibility = true
-            delay(800)
-            volumeIconVisibility = false
+        LaunchedEffect(key1 = shouldPlay) {
+                pagerState.animateScrollToPage(pagerState.targetPage)
         }
-
-        if (currentPlayerItem == reel) {
-            AndroidView(
-                factory = { context ->
-                    PlayerView(context).apply {
-                        player = exoPlayer
-                        layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                        hideController()
-                        useController = false
+        ReelPlayer(
+            reel = reels[index],
+            shouldPlay = shouldPlay,
+            isMuted = isMuted,
+            isScrolling = pagerState.isScrollInProgress,
+            onMuted = {
+                isMuted = it
+            },
+            onDoubleTap = {
+                onLiked(index, it)
+            }
+        )
+        ReelItem(
+            reel = reels[index],
+            onIconClicked = { icon ->
+                when (icon) {
+                    Icon.CAMERA -> {
+                        //:TODO
                     }
+                    Icon.SHARE -> {
+                        //:TODO
+                    }
+                    Icon.MORE_OPTIONS -> {
+                        //:TODO
+                    }
+                    Icon.AUDIO -> {
+                        //:TODO
+                    }
+                    Icon.LIKE -> {
+                        onLiked(index, !reels[index].reelInfo.isLiked)
+                    }
+                    Icon.COMMENT -> {
+                        //:TODO
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun rememberExoPlayerWithLifecycle(
+    reelUrl: String
+): ExoPlayer {
+
+    val context = LocalContext.current
+    val exoPlayer = remember(reelUrl) {
+        ExoPlayer.Builder(context).build().apply {
+            videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+            repeatMode = Player.REPEAT_MODE_ONE
+            setHandleAudioBecomingNoisy(true)
+            val defaultDataSource = DefaultHttpDataSource.Factory()
+            val source = ProgressiveMediaSource.Factory(defaultDataSource)
+                .createMediaSource(MediaItem.fromUri(reelUrl))
+            setMediaSource(source)
+            prepare()
+        }
+    }
+    var appInBackground by remember {
+        mutableStateOf(false)
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(key1 = lifecycleOwner, appInBackground) {
+        val lifecycleObserver = getExoPlayerLifecycleObserver(exoPlayer, appInBackground) {
+            appInBackground = it
+        }
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+        }
+    }
+    return exoPlayer
+}
+
+fun getExoPlayerLifecycleObserver(
+    exoPlayer: ExoPlayer,
+    wasAppInBackground: Boolean,
+    setWasAppInBackground: (Boolean) -> Unit
+): LifecycleEventObserver =
+    LifecycleEventObserver { _, event ->
+        when (event) {
+            Lifecycle.Event.ON_RESUME -> {
+                if (wasAppInBackground)
+                    exoPlayer.playWhenReady = true
+                setWasAppInBackground(false)
+            }
+            Lifecycle.Event.ON_PAUSE -> {
+                exoPlayer.playWhenReady = false
+                setWasAppInBackground(true)
+            }
+            Lifecycle.Event.ON_STOP -> {
+                exoPlayer.playWhenReady = false
+                setWasAppInBackground(true)
+            }
+            Lifecycle.Event.ON_DESTROY -> {
+                exoPlayer.release()
+            }
+            else -> {}
+        }
+    }
+
+@Composable
+fun ReelPlayer(
+    reel: Reel,
+    shouldPlay: Boolean,
+    isMuted: Boolean,
+    onMuted: (Boolean) -> Unit,
+    onDoubleTap: (Boolean) -> Unit,
+    isScrolling: Boolean
+) {
+    val exoPlayer = rememberExoPlayerWithLifecycle(reel.reelUrl)
+    val playerView = rememberPlayerView(exoPlayer)
+    var volumeIconVisibility by remember { mutableStateOf(false) }
+    var likeIconVisibility by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    Box {
+        AndroidView(
+            factory = { playerView },
+            modifier = Modifier
+                .pointerInput(reel.reelInfo.isLiked, isMuted) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            onDoubleTap(true)
+                            coroutineScope.launch {
+                                likeIconVisibility = true
+                                delay(800)
+                                likeIconVisibility = false
+                            }
+                        },
+                        onTap = {
+                            if (exoPlayer.playWhenReady) {
+                                if (isMuted.not()) {
+                                    exoPlayer.volume = 0f
+                                    onMuted(true)
+                                } else {
+                                    exoPlayer.volume = 1f
+                                    onMuted(false)
+                                }
+                                coroutineScope.launch {
+                                    volumeIconVisibility = true
+                                    delay(800)
+                                    volumeIconVisibility = false
+                                }
+                            }
+                        },
+                        onPress = {
+                            if(!isScrolling){
+                                exoPlayer.playWhenReady = false
+                                awaitRelease()
+                                exoPlayer.playWhenReady = true
+                            }
+                        },
+                        onLongPress = {}
+                    )
                 },
-                modifier = Modifier.fillMaxSize()
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.Transparent,
-                                Color.Black.copy(0.5f)
-                            )
-                        )
-                    )
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .padding(PaddingValues(8.dp, 16.dp)),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Reels",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White
-                )
-
-                IconButton(onClick = { onIconClicked(Icon.CAMERA) }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_camera),
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(30.dp)
-                    )
-                }
+            update = {
+                exoPlayer.volume = if (isMuted) 0f else 1f
+                exoPlayer.playWhenReady = shouldPlay
             }
+        )
 
-            Box(
+        AnimatedVisibility(
+            visible = likeIconVisibility,
+            enter = scaleIn(
+                spring(Spring.DampingRatioMediumBouncy)
+            ),
+            exit = scaleOut(tween(150)),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Favorite,
+                contentDescription = null,
+                tint = Color.White.copy(0.90f),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.5f)
-                    .align(Alignment.BottomCenter)
-            ) {
-
-                ReelsInfoItems(
-                    reel.reelInfo
-                ){
-                    onIconClicked(it)
-                }
-
-            }
+                    .size(100.dp)
+            )
         }
 
         if (volumeIconVisibility) {
             Icon(
                 painter = painterResource(id = if (isMuted) R.drawable.ic_volume_off else R.drawable.ic_volume_on),
                 contentDescription = null,
-                tint = Color.White.copy(0.5f),
+                tint = Color.White.copy(0.75f),
                 modifier = Modifier
                     .align(Alignment.Center)
                     .size(100.dp)
             )
+        }
+
+    }
+
+    DisposableEffect(key1 = true) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+}
+
+@Composable
+fun rememberPlayerView(exoPlayer: ExoPlayer): PlayerView {
+    val context = LocalContext.current
+    val playerView = remember {
+        PlayerView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            useController = false
+            player = exoPlayer
+            setShowBuffering(SHOW_BUFFERING_ALWAYS)
+        }
+    }
+    DisposableEffect(key1 = true) {
+        onDispose {
+            playerView.player = null
+        }
+    }
+    return playerView
+}
+
+@Composable
+fun ReelItem(
+    reel: Reel,
+    onIconClicked: (Icon) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.Black.copy(0.5f)
+                        )
+                    )
+                )
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .padding(PaddingValues(8.dp, 16.dp)),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Reels",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
+
+            IconButton(onClick = { onIconClicked(Icon.CAMERA) }) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_camera),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(30.dp)
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.5f)
+                .align(Alignment.BottomCenter)
+        ) {
+
+            ReelsInfoItems(
+                reel.reelInfo
+            ) {
+                onIconClicked(it)
+            }
+
         }
     }
 }
@@ -547,18 +650,14 @@ fun ReelsColumnIcons(
     onIconClicked: (Icon) -> Unit
 ) {
 
-    var isLiked by remember {
-        mutableStateOf(false)
-    }
-
     TextedIcon(
-        iconVector = if (!isLiked) Icons.Outlined.FavoriteBorder else Icons.Filled.Favorite,
+        iconVector = if (!reelInfo.isLiked) Icons.Outlined.FavoriteBorder else Icons.Filled.Favorite,
         text = reelInfo.likes.toString(),
         modifier = Modifier.size(30.dp),
-        tint = if (isLiked) Color.Red else Color.White,
+        tint = if (reelInfo.isLiked) Color.Red else Color.White,
         onIconClicked = {
             onIconClicked(Icon.LIKE)
-            isLiked = !isLiked
+//            reelInfo.isLiked = !reelInfo.isLiked
         }
     )
     TextedIcon(
@@ -658,38 +757,3 @@ fun TextedIcon(
         )
     }
 }
-
-/*
-
-@Preview
-@Composable
-fun PreviewReelItem() {
-    ReelItem(
-        reel = Reel(
-            "www",
-            false,
-            ReelInfo(
-                "Astro",
-                "www",
-                "Look at my brand new reel, Omg It is so Awesome man. Please like share and comment for a better reach",
-                100,
-                100,
-                audio = "Look at my brand new reel, Omg It is so Awesome man. Please like share and comment for a better reach",
-                //filter = "Some long filter name dahibafiguafeugoqeugi fqhiqfuiw",
-                location = "Muscat, Oman",
-                taggedPeople = listOf("Delwar", "Kruger")
-            )
-        ), onIconClicked = {},
-        modifier = Modifier.fillMaxSize()
-    )
-}
-*/
-
-
-
-@Preview(device = Devices.NEXUS_5)
-@Composable
-fun PreviewReelsScreen() {
-    //ReelsScreen(player = player)
-}
-

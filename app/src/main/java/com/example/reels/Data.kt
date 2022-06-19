@@ -1,6 +1,8 @@
 package com.example.reels
 
-val list = listOf(
+import androidx.compose.runtime.toMutableStateList
+
+val reels = listOf(
     Reel(
         "https://user-images.githubusercontent.com/90382113/170887700-e405c71e-fe31-458d-8572-aea2e801eecc.mp4",
         true,
@@ -22,6 +24,7 @@ val list = listOf(
                     "3) Freeze for 20 minutes, then break into it and inhale!\n" +
                     "\n" +
                     "#ricecakes #ricecakedessert #easytreat #glutenfreetreat #glutenfreedessert #peanutbutterandchocolate #frozenbananas #glutenfreeblogger #glutenfreerecipes #easyrecipesathome #foodblogfeed #thebakefeed #feedfeedglutenfree #peanutbutterbanana #kelownafoodie",
+            false,
             4193,
             128,
             "altego_music • Original Audio",
@@ -36,6 +39,7 @@ val list = listOf(
             "antoniovalenteflowers",
             "https://scontent-mct1-1.cdninstagram.com/v/t51.2885-19/13269523_552412941629854_1970149043_a.jpg?stp=dst-jpg_s150x150&_nc_ht=scontent-mct1-1.cdninstagram.com&_nc_cat=110&_nc_ohc=e9-l1R7zpz4AX_5JL2z&edm=ALQROFkBAAAA&ccb=7-5&oh=00_AT9WnWdzlXKlFcJDPjG0hgLSFZXCmoCTzvVf7DY_U8F0nw&oe=629AF495&_nc_sid=30a2ef",
             "I’m very modest. In fact, I’m not sure if anyone has noticed, but this whole Instagram thing is way outside of my comfort zone… \uD83D\uDE0F\uD83D\uDC81\uD83C\uDFFB\u200D♂️\uD83D\uDC90",
+            true,
             1146,
             26,
             "bossbabe.inc  •Lady Gaga x The Hollywood Reporter Interview",
@@ -50,6 +54,7 @@ val list = listOf(
             "fulltimefemme",
             "https://scontent-mct1-1.cdninstagram.com/v/t51.2885-19/273931120_1156949488175403_966623537086756293_n.jpg?stp=dst-jpg_s320x320&_nc_ht=scontent-mct1-1.cdninstagram.com&_nc_cat=103&_nc_ohc=8mtPH1cBPLAAX-E75Id&tn=8122GOQQvKMJrzOJ&edm=ABfd0MgBAAAA&ccb=7-5&oh=00_AT8hav312iylYfd6Tv3sJMnGbieyf9UUWfC_2I1Nv2g-oQ&oe=629B36C7&_nc_sid=7bff83",
             "first of the season ☀️\uD83E\uDEE7\uD83C\uDF53\uD83E\uDD42\uD83C\uDF07",
+            true,
             6102,
             32,
             "discolines • BABY GIRL",
@@ -80,6 +85,7 @@ val list = listOf(
                     ".\n" +
                     "\n" +
                     "#hkfood #hkfoodie #hongkongfood #hongkongfoodie #hkstyle #hkmilktea #pineapplebun #chinesefood #chinesefoodlover #chinesefoods #chinesefoodporn #vancouverfoodie #vancouverfood #vancouvereats #yvrfoodie #yvreats #yvrfood #604eats #dishedvan #vancouverrestaurants #vancouverbc #chickensandwich #asianheritagemonth",
+            false,
             1307,
             66,
             "austinmillz • Austin Millz - To Be Real",
@@ -105,6 +111,7 @@ val list = listOf(
                     "•\n" +
                     "#ourplanetourhome #ourplanetisbeautiful #canada\n" +
                     "#capturethemoment #capturethemoments #canadaparks #nationalpark #nationalparks #springvibes #spring2022 #springtimevibes #thingstodoincanada #discovercanada #explorecanada #travelcanada #travelalberta #cruisinglife #1000hoursoutside #heavenonearth #naturelover #naturephotography #naturephotography #explorealberta #canadaisbeautiful #canadaisawesome #canadaisbeautiful",
+            false,
             3522,
             125,
             "Heaven Is a Place on Earth",
@@ -112,4 +119,6 @@ val list = listOf(
             taggedPeople = Array(20){"it"}.toList()
         )
     )
-)
+).toMutableStateList()
+
+
