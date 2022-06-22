@@ -54,6 +54,7 @@ import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.PlayerView.SHOW_BUFFERING_ALWAYS
 import coil.compose.rememberAsyncImagePainter
@@ -61,6 +62,7 @@ import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.VerticalPager
 import com.google.accompanist.pager.rememberPagerState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -77,59 +79,78 @@ fun ReelsScreen() {
                 reels[index].copy(reelInfo = reels[index].reelInfo.copy(isLiked = liked))
         }
     }
-    VerticalPager(
-        count = reels.size,
-        state = pagerState,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        itemSpacing = 10.dp
-    ) { index ->
-        val shouldPlay by remember(currentPage) {
-            derivedStateOf {
-                (abs(currentPageOffset) < .5 && currentPage == index) || (abs(
-                    currentPageOffset
-                ) > .5 && pagerState.targetPage == index)
-            }
+    val isFirstItem by remember(pagerState) {
+        derivedStateOf {
+            pagerState.currentPage == 0
         }
-        LaunchedEffect(key1 = shouldPlay) {
-                pagerState.animateScrollToPage(pagerState.targetPage)
+    }
+
+    LaunchedEffect(key1 = pagerState) {
+        snapshotFlow { pagerState.currentPage }.distinctUntilChanged().collect { page ->
+            pagerState.animateScrollToPage(page)
         }
-        ReelPlayer(
-            reel = reels[index],
-            shouldPlay = shouldPlay,
-            isMuted = isMuted,
-            isScrolling = pagerState.isScrollInProgress,
-            onMuted = {
-                isMuted = it
-            },
-            onDoubleTap = {
-                onLiked(index, it)
-            }
-        )
-        ReelItem(
-            reel = reels[index],
-            onIconClicked = { icon ->
-                when (icon) {
-                    Icon.CAMERA -> {
-                        //:TODO
-                    }
-                    Icon.SHARE -> {
-                        //:TODO
-                    }
-                    Icon.MORE_OPTIONS -> {
-                        //:TODO
-                    }
-                    Icon.AUDIO -> {
-                        //:TODO
-                    }
-                    Icon.LIKE -> {
-                        onLiked(index, !reels[index].reelInfo.isLiked)
-                    }
-                    Icon.COMMENT -> {
-                        //:TODO
-                    }
+    }
+
+    Box {
+        VerticalPager(
+            count = reels.size,
+            state = pagerState,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            itemSpacing = 10.dp
+        ) { index ->
+            val shouldPlay by remember(pagerState) {
+                derivedStateOf {
+                    (abs(currentPageOffset) < .5 && currentPage == index) || (abs(
+                        currentPageOffset
+                    ) > .5 && pagerState.targetPage == index)
                 }
             }
-        )
+            ReelPlayer(
+                reel = reels[index],
+                shouldPlay = shouldPlay,
+                isMuted = isMuted,
+                isScrolling = pagerState.isScrollInProgress,
+                onMuted = {
+                    isMuted = it
+                },
+                onDoubleTap = {
+                    onLiked(index, it)
+                }
+            )
+            ReelItem(
+                reel = reels[index],
+                onIconClicked = { icon ->
+                    when (icon) {
+                        Icon.CAMERA -> {
+                            //:TODO
+                        }
+                        Icon.SHARE -> {
+                            //:TODO
+                        }
+                        Icon.MORE_OPTIONS -> {
+                            //:TODO
+                        }
+                        Icon.AUDIO -> {
+                            //:TODO
+                        }
+                        Icon.LIKE -> {
+                            onLiked(index, !reels[index].reelInfo.isLiked)
+                        }
+                        Icon.COMMENT -> {
+                            //:TODO
+                        }
+                    }
+                }
+            )
+            ReelHeader(
+                isFirstItem = isFirstItem,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+            ) {
+
+            }
+        }
     }
 }
 
@@ -167,6 +188,45 @@ fun rememberExoPlayerWithLifecycle(
     return exoPlayer
 }
 
+@Composable
+fun ReelHeader(
+    modifier: Modifier = Modifier,
+    isFirstItem: Boolean,
+    onCameraIconClicked: (Icon) -> Unit
+) {
+    Box(
+        modifier = modifier
+            .padding(PaddingValues(8.dp, 16.dp)),
+    ) {
+        AnimatedVisibility(
+            visible = isFirstItem,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.CenterStart)
+        ) {
+            Text(
+                text = "Reels",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+            )
+        }
+
+        IconButton(
+            onClick = { onCameraIconClicked(Icon.CAMERA) },
+            modifier = Modifier.align(Alignment.CenterEnd)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_camera),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(30.dp)
+            )
+        }
+    }
+}
+
 fun getExoPlayerLifecycleObserver(
     exoPlayer: ExoPlayer,
     wasAppInBackground: Boolean,
@@ -194,6 +254,7 @@ fun getExoPlayerLifecycleObserver(
         }
     }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun ReelPlayer(
     reel: Reel,
@@ -240,7 +301,7 @@ fun ReelPlayer(
                             }
                         },
                         onPress = {
-                            if(!isScrolling){
+                            if (!isScrolling) {
                                 exoPlayer.playWhenReady = false
                                 awaitRelease()
                                 exoPlayer.playWhenReady = true
@@ -299,6 +360,7 @@ fun rememberPlayerView(exoPlayer: ExoPlayer): PlayerView {
         PlayerView(context).apply {
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
             useController = false
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             player = exoPlayer
             setShowBuffering(SHOW_BUFFERING_ALWAYS)
         }
@@ -330,32 +392,6 @@ fun ReelItem(
                     )
                 )
         )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .padding(PaddingValues(8.dp, 16.dp)),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Reels",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White
-            )
-
-            IconButton(onClick = { onIconClicked(Icon.CAMERA) }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_camera),
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier
-                        .size(30.dp)
-                )
-            }
-        }
 
         Box(
             modifier = Modifier
